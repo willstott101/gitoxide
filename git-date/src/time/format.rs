@@ -29,14 +29,16 @@ pub const DEFAULT: &[FormatItem<'_>] = format_description!(
     "[weekday repr:short] [month repr:short] [day] [year] [hour]:[minute]:[second] [offset_hour sign:mandatory][offset_minute]"
 );
 
-/// E.g. `Thu Sep 04 2022 10:45:06`
-const DEFAULT_NO_OFFSET: &[FormatItem<'_>] =
-    format_description!("[weekday repr:short] [month repr:short] [day] [year] [hour]:[minute]:[second]");
-/// E.g. `Thu 10:45:06 -0400`
-const DEFAULT_NO_DATE: &[FormatItem<'_>] =
-    format_description!("[weekday repr:short] [hour]:[minute]:[second] [offset_hour sign:mandatory][offset_minute]");
+/// E.g. `Dec 31 2021`
+const HUMAN_OTHER_YEAR: &[FormatItem<'_>] = format_description!("[month repr:short] [day] [year]");
+/// E.g. `Thu Sep 04 10:45`
+const HUMAN_SAME_YEAR: &[FormatItem<'_>] =
+    format_description!("[weekday repr:short] [month repr:short] [day] [hour]:[minute]");
+/// If day-of-week is enough to determine the date, but the timezones don't match
+const HUMAN_SAME_WEEK: &[FormatItem<'_>] =
+    format_description!("[weekday repr:short] [hour]:[minute] [offset_hour sign:mandatory][offset_minute]");
 /// If day-of-week is enough to determine the date
-const HUMAN_SHORT: &[FormatItem<'_>] = format_description!("[weekday repr:short] [hour]:[minute]:[second]");
+const HUMAN_SAME_WEEK_NO_OFFSET: &[FormatItem<'_>] = format_description!("[weekday repr:short] [hour]:[minute]");
 
 mod format_impls {
     use time::format_description::FormatItem;
@@ -55,23 +57,43 @@ pub fn human_format_comparing_to(
     format: time::OffsetDateTime,
     compare: time::OffsetDateTime,
 ) -> Result<String, time::error::Format> {
-    // TODO: "9 minutes ago" and similar
-    // TODO: Investigate original git? It seems to show timezones inconsistently
-        // Investigate `git log --format="human= %<(25)%ah human-local= %<(25)%ad iso=%ai" --date=human-local`
-        // human= 4 hours ago               human-local= 4 hours ago               iso=2022-11-27 10:15:32 +0100
-        // human= Wed 20:01 +0100           human-local= Wed 19:01                 iso=2022-11-23 20:01:23 +0100
-        // human= Mon Nov 21 07:02          human-local= Mon Nov 21 06:02          iso=2022-11-21 07:02:10 +0100
-        // human= Sun Nov 20 22:39          human-local= Mon Nov 21 03:39          iso=2022-11-20 22:39:26 -0500
-    let show_offset = compare.offset() != format.offset();
-    // TODO: skip the year if equal
-    let show_date = format > compare || (compare - format) > (time::Duration::DAY * 6);
+    // `git log --format="human= %<(25)%ah human-local= %<(25)%ad iso=%ai" --date=human-local`
+    // human= 4 hours ago               human-local= 4 hours ago               iso=2022-11-27 10:15:32 +0100
+    // human= Fri 11:31                 human-local= Fri 11:31                 iso=2022-11-25 11:31:34 +0000
+    // human= Wed 20:01 +0100           human-local= Wed 19:01                 iso=2022-11-23 20:01:23 +0100
+    // human= Sun Nov 20 22:39          human-local= Mon Nov 21 03:39          iso=2022-11-20 22:39:26 -0500
+    // human= Dec 31 2021               human-local= Dec 31 2021               iso=2021-12-31 20:41:47 +0800
 
-    format.format(match (show_offset, show_date) {
-        (true, true) => &DEFAULT,
-        (false, true) => &DEFAULT_NO_OFFSET,
-        (true, false) => &DEFAULT_NO_DATE,
-        (false, false) => &HUMAN_SHORT,
-    })
+    let show_offset = compare.offset() != format.offset();
+
+    let difference = compare - format;
+
+    // TODO: Translation
+    if format > compare {
+        Ok("in the future".to_string())
+    } else if format.year() != compare.year() {
+        format.format(HUMAN_OTHER_YEAR)
+    } else if difference > (time::Duration::DAY * 4) {
+        format.format(HUMAN_SAME_YEAR)
+    } else if format.day() == compare.day() {
+        let secs = difference.whole_seconds();
+        if secs == 1 {
+            // All other breakpoints round-up to >= 2 so can be plural
+            Ok("1 second ago".to_string())
+        } else if secs < 90 {
+            Ok(format!("{} seconds ago", secs))
+        } else if secs < 5400 {
+            let mins = ((secs as f32) / 60f32).round();
+            Ok(format!("{} minutes ago", mins))
+        } else {
+            let hours = ((secs as f32) / 3600f32).round();
+            Ok(format!("{} hours ago", hours))
+        }
+    } else if show_offset {
+        format.format(HUMAN_SAME_WEEK)
+    } else {
+        format.format(HUMAN_SAME_WEEK_NO_OFFSET)
+    }
 }
 
 /// Formatting

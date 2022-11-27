@@ -48,42 +48,71 @@ fn default() {
 
 #[test]
 fn human() {
-    // Timezone matches, same time
-    let expected = "Thu 21:33:09";
+    let expected = "in the future";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time() - time::Duration::DAY).unwrap(),
+        expected
+    );
+
+    let expected = "0 seconds ago";
     assert_eq!(
         format::human_format_comparing_to(raw_time(), raw_time()).unwrap(),
         expected
     );
 
-    // Timezone doesn't match, same time
-    let expected = "Thu 21:33:09 +0230";
+    let expected = "1 second ago";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time() + time::Duration::SECOND).unwrap(),
+        expected
+    );
+
+    let expected = "89 seconds ago";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time() + time::Duration::SECOND * 89).unwrap(),
+        expected
+    );
+
+    let expected = "89 minutes ago";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time() + time::Duration::MINUTE * 89).unwrap(),
+        expected
+    );
+
+    let expected = "2 hours ago";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time() + time::Duration::MINUTE * 90).unwrap(),
+        expected
+    );
+
+    // TODO: Verify why this is showing as 3 hours ago......???? There's a timezone misunderstanding here somewhere
+    let expected = "Thu 21:33 +0230";
     assert_eq!(
         format::human_format_comparing_to(raw_time(), raw_time().replace_offset(UtcOffset::UTC)).unwrap(),
         expected
     );
 
     // Timezone matches, but was more than a week ago
-    let expected = "Thu Nov 29 1973 21:33:09";
+    let expected = "Thu Nov 29 21:33";
     assert_eq!(
         format::human_format_comparing_to(raw_time(), raw_time() + time::Duration::WEEK).unwrap(),
         expected
     );
 
-    // Timezone matches, but time is in the future
-    let expected = "Thu Nov 29 1973 21:33:09";
-    assert_eq!(
-        format::human_format_comparing_to(raw_time(), raw_time() - time::Duration::DAY).unwrap(),
-        expected
-    );
-
     // Timezone does not match, more than a week ago
-    let expected = "Thu Nov 29 1973 21:33:09 +0230";
+    let expected = "Thu Nov 29 21:33";
     assert_eq!(
         format::human_format_comparing_to(
             raw_time(),
             raw_time().replace_offset(UtcOffset::UTC) + time::Duration::WEEK
         )
         .unwrap(),
+        expected
+    );
+
+    // Time was previous year
+    let expected = "Nov 29 1973";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time() + time::Duration::DAY * 365).unwrap(),
         expected
     );
 }
