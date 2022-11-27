@@ -2,7 +2,7 @@ use git_date::{
     time::{format, Format, Sign},
     Time,
 };
-use time::macros::format_description;
+use time::{macros::format_description, UtcOffset};
 
 #[test]
 fn short() {
@@ -47,11 +47,60 @@ fn default() {
 }
 
 #[test]
+fn human() {
+    // Timezone matches, same time
+    let expected = "Thu 21:33:09";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time()).unwrap(),
+        expected
+    );
+
+    // Timezone doesn't match, same time
+    let expected = "Thu 21:33:09 +0230";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time().replace_offset(UtcOffset::UTC)).unwrap(),
+        expected
+    );
+
+    // Timezone matches, but was more than a week ago
+    let expected = "Thu Nov 29 1973 21:33:09";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time() + time::Duration::WEEK).unwrap(),
+        expected
+    );
+
+    // Timezone matches, but time is in the future
+    let expected = "Thu Nov 29 1973 21:33:09";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time() - time::Duration::DAY).unwrap(),
+        expected
+    );
+
+    // Timezone does not match, more than a week ago
+    let expected = "Thu Nov 29 1973 21:33:09 +0230";
+    assert_eq!(
+        format::human_format_comparing_to(
+            raw_time(),
+            raw_time().replace_offset(UtcOffset::UTC) + time::Duration::WEEK
+        )
+        .unwrap(),
+        expected
+    );
+}
+
+#[test]
 fn custom_compile_time() {
     assert_eq!(
         time().format(format_description!("[year]-[month]-[day] [hour]:[minute]:[second]")),
         "1973-11-29 21:33:09",
     );
+}
+
+fn raw_time() -> time::OffsetDateTime {
+    let t = time();
+    time::OffsetDateTime::from_unix_timestamp(t.seconds_since_unix_epoch as i64)
+        .unwrap()
+        .replace_offset(time::UtcOffset::from_whole_seconds(t.offset_in_seconds).expect("valid offset"))
 }
 
 fn time() -> Time {
