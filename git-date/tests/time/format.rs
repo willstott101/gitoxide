@@ -84,33 +84,33 @@ fn human() {
         expected
     );
 
-    // TODO: Verify why this is showing as 3 hours ago......???? There's a timezone misunderstanding here somewhere
-    let expected = "Thu 21:33 +0230";
+    // Timezone does not match, but the time is the same
+    let expected = "Fri 00:03 +0230";
     assert_eq!(
-        format::human_format_comparing_to(raw_time(), raw_time().replace_offset(UtcOffset::UTC)).unwrap(),
+        format::human_format_comparing_to(raw_time(), raw_time().to_offset(UtcOffset::UTC)).unwrap(),
         expected
     );
 
     // Timezone matches, but was more than a week ago
-    let expected = "Thu Nov 29 21:33";
+    let expected = "Fri Nov 30 00:03";
     assert_eq!(
         format::human_format_comparing_to(raw_time(), raw_time() + time::Duration::WEEK).unwrap(),
         expected
     );
 
     // Timezone does not match, more than a week ago
-    let expected = "Thu Nov 29 21:33";
+    let expected = "Fri Nov 30 00:03";
     assert_eq!(
         format::human_format_comparing_to(
             raw_time(),
-            raw_time().replace_offset(UtcOffset::UTC) + time::Duration::WEEK
+            raw_time().to_offset(UtcOffset::UTC) + time::Duration::WEEK
         )
         .unwrap(),
         expected
     );
 
     // Time was previous year
-    let expected = "Nov 29 1973";
+    let expected = "Nov 30 1973";
     assert_eq!(
         format::human_format_comparing_to(raw_time(), raw_time() + time::Duration::DAY * 365).unwrap(),
         expected
@@ -129,7 +129,7 @@ fn raw_time() -> time::OffsetDateTime {
     let t = time();
     time::OffsetDateTime::from_unix_timestamp(t.seconds_since_unix_epoch as i64)
         .unwrap()
-        .replace_offset(time::UtcOffset::from_whole_seconds(t.offset_in_seconds).expect("valid offset"))
+        .to_offset(time::UtcOffset::from_whole_seconds(t.offset_in_seconds).expect("valid offset"))
 }
 
 fn time() -> Time {
