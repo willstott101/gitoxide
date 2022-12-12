@@ -31,6 +31,8 @@ pub enum Format<'a> {
     Unix,
     /// The seconds since 1970, followed by the offset, like `1660874655 +0800`
     Raw,
+    /// Similar to Custom(DEFAULT), but excludes the timezone offset if it matches the local offset, and excludes the date if the day was in the past week.
+    Human,
 }
 
 ///
