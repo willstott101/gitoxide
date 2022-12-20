@@ -1,16 +1,10 @@
 //! These are old tests of the now removed linked odb, but executed on the general store
 //! to be sure we don't loose coverage. This might, however, be overlapping with much more thorough
 //! tests o the general store itself, so they can possibly be removed at some point.
-use crate::fixture_path;
-
-fn db() -> git_odb::Handle {
-    git_odb::at(fixture_path("objects")).expect("valid object path")
-}
-
 mod iter {
+    use crate::odb::db;
+    use git_odb::Header;
     use git_pack::Find;
-
-    use crate::odb::store::linked::db;
 
     #[test]
     fn a_bunch_of_loose_and_packed_objects() -> crate::Result {
@@ -23,7 +17,9 @@ mod iter {
         );
         assert_eq!(iter.count(), 146, "it sees the correct amount of objects");
         for id in db.iter()? {
-            assert!(db.contains(id?), "each object exists");
+            let id = id?;
+            assert!(db.contains(id), "each object exists");
+            assert!(db.try_header(id)?.is_some(), "header is readable");
         }
         Ok(())
     }
@@ -33,7 +29,8 @@ mod locate {
     use git_odb::Handle;
     use git_pack::Find;
 
-    use crate::{hex_to_id, odb::store::linked::db};
+    use crate::hex_to_id;
+    use crate::odb::db;
 
     fn can_locate(db: &Handle, hex_id: &str) {
         let mut buf = vec![];
@@ -57,10 +54,11 @@ mod locate {
 }
 
 mod init {
+    use crate::odb::alternate::alternate;
     use git_hash::ObjectId;
     use git_odb::Find;
 
-    use crate::odb::{alternate::alternate, store::linked::db};
+    use crate::odb::db;
 
     #[test]
     fn multiple_linked_repositories_via_alternates() -> crate::Result {

@@ -22,6 +22,7 @@ pub(crate) struct Snapshot {
 }
 
 mod error {
+    use git_pack::multi_index::PackIndex;
     use std::path::PathBuf;
 
     /// Returned by [`crate::at_opts()`]
@@ -44,12 +45,18 @@ mod error {
             super::Generation::MAX
         )]
         GenerationOverflow,
+        #[error("Cannot numerically handle more than {limit} packs in a single multi-pack index, got {actual} in file {index_path:?}")]
+        TooManyPacksInMultiIndex {
+            actual: PackIndex,
+            limit: PackIndex,
+            index_path: PathBuf,
+        },
     }
 }
 
 pub use error::Error;
 
-use crate::store::types::{Generation, IndexAndPacks, MutableIndexAndPack, SlotMapIndex};
+use crate::store::types::{Generation, IndexAndPacks, MutableIndexAndPack, PackId, SlotMapIndex};
 
 impl super::Store {
     /// Load all indices, refreshing from disk only if needed.
@@ -279,7 +286,7 @@ impl super::Store {
             .unwrap_or(0);
         let mut num_indices_checked = 0;
         let mut needs_generation_change = false;
-        let mut slot_indices_to_remove: Vec<_> = idx_by_index_path.into_iter().map(|(_, v)| v).collect();
+        let mut slot_indices_to_remove: Vec<_> = idx_by_index_path.into_values().collect();
         while let Some((mut index_info, mtime, move_from_slot_idx)) = index_paths_to_add.pop_front() {
             'increment_slot_index: loop {
                 if num_indices_checked == self.files.len() {
@@ -419,7 +426,7 @@ impl super::Store {
         let mut indices_by_modification_time = Vec::with_capacity(initial_capacity.unwrap_or_default());
         for db_path in db_paths {
             let packs = db_path.join("pack");
-            let entries = match std::fs::read_dir(&packs) {
+            let entries = match std::fs::read_dir(packs) {
                 Ok(e) => e,
                 Err(err) if err.kind() == std::io::ErrorKind::NotFound => continue,
                 Err(err) => return Err(err.into()),
@@ -436,19 +443,32 @@ impl super::Store {
                 .map(|(p, md)| md.modified().map_err(Error::from).map(|mtime| (p, mtime, md.len())))
                 .collect::<Result<Vec<_>, _>>()?;
 
-            let multi_index_info = multi_pack_index_object_hash.and_then(|hash| {
-                indices.iter().find_map(|(p, a, b)| {
-                    is_multipack_index(p)
-                        .then(|| {
-                            // we always open the multi-pack here to be able to remove indices
-                            git_pack::multi_index::File::at(p)
-                                .ok()
-                                .filter(|midx| midx.object_hash() == hash)
-                                .map(|midx| (midx, *a, *b))
-                        })
-                        .flatten()
+            let multi_index_info = multi_pack_index_object_hash
+                .and_then(|hash| {
+                    indices.iter().find_map(|(p, a, b)| {
+                        is_multipack_index(p)
+                            .then(|| {
+                                // we always open the multi-pack here to be able to remove indices
+                                git_pack::multi_index::File::at(p)
+                                    .ok()
+                                    .filter(|midx| midx.object_hash() == hash)
+                                    .map(|midx| (midx, *a, *b))
+                            })
+                            .flatten()
+                            .map(|t| {
+                                if t.0.num_indices() > PackId::max_packs_in_multi_index() {
+                                    Err(Error::TooManyPacksInMultiIndex {
+                                        index_path: p.to_owned(),
+                                        actual: t.0.num_indices(),
+                                        limit: PackId::max_packs_in_multi_index(),
+                                    })
+                                } else {
+                                    Ok(t)
+                                }
+                            })
+                    })
                 })
-            });
+                .transpose()?;
             if let Some((multi_index, mtime, flen)) = multi_index_info {
                 let index_names_in_multi_index: Vec<_> =
                     multi_index.index_names().iter().map(|p| p.as_path()).collect();
