@@ -5,9 +5,9 @@ use cargo_smart_release::{
     changelog::{section, section::segment::conventional, Section},
     ChangeLog,
 };
-use git_testtools::{bstr::ByteSlice, hex_to_id};
+use gix_testtools::bstr::ByteSlice;
 
-use crate::Result;
+use crate::{changelog::hex_to_id, Result};
 
 #[test]
 fn conventional_write_empty_messages() -> Result {
@@ -53,7 +53,7 @@ fn conventional_write_empty_messages() -> Result {
     for link_mode in &[
         changelog::write::Linkables::AsText,
         changelog::write::Linkables::AsLinks {
-            repository_url: git_repository::Url::try_from(b"https://github.com/user/repo.git".as_bstr())?.into(),
+            repository_url: gix::Url::try_from(b"https://github.com/user/repo.git".as_bstr())?.into(),
         },
     ] {
         let log = log.clone();
@@ -129,7 +129,7 @@ fn all_section_types_round_trips_lossy() -> Result {
                                         id: hex_to_id("e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"),
                                     },
                                     section::segment::details::Message {
-                                        title: "title and body".into(),
+                                        title: "Title and body".into(),
                                         id: hex_to_id("e69de29bb2d1d6434b8b29ae775ad8c2e48c5392"),
                                     },
                                 ],
@@ -142,7 +142,7 @@ fn all_section_types_round_trips_lossy() -> Result {
                                         id: hex_to_id("e69de29bb2d1d6434b8b29ae775ad8c2e48c5392"),
                                     },
                                     section::segment::details::Message {
-                                        title: "another title".into(),
+                                        title: "Another title".into(),
                                         id: hex_to_id("e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"),
                                     },
                                 ],
@@ -159,7 +159,7 @@ fn all_section_types_round_trips_lossy() -> Result {
     for link_mode in &[
         changelog::write::Linkables::AsText,
         changelog::write::Linkables::AsLinks {
-            repository_url: git_repository::Url::try_from(b"https://github.com/user/repo".as_bstr())?.into(),
+            repository_url: gix::Url::try_from(b"https://github.com/user/repo".as_bstr())?.into(),
         },
     ] {
         // NOTE: we can't run this a second time as the statistical information will be gone (it was never parsed back)

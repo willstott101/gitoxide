@@ -26,7 +26,7 @@ pub use tempfile;
 /// Use it like so:
 ///
 /// ```no_run
-/// use git_testtools::Result;
+/// use gix_testtools::Result;
 ///
 /// #[test]
 /// fn this() -> Result {
@@ -53,24 +53,24 @@ impl Drop for GitDaemon {
 }
 
 static SCRIPT_IDENTITY: Lazy<Mutex<BTreeMap<PathBuf, u32>>> = Lazy::new(|| Mutex::new(BTreeMap::new()));
-static EXCLUDE_LUT: Lazy<Mutex<Option<git_worktree::fs::Cache<'static>>>> = Lazy::new(|| {
+static EXCLUDE_LUT: Lazy<Mutex<Option<gix_worktree::fs::Cache>>> = Lazy::new(|| {
     let cache = (|| {
-        let (repo_path, _) = git_discover::upwards(Path::new(".")).ok()?;
-        let (git_dir, work_tree) = repo_path.into_repository_and_work_tree_directories();
+        let (repo_path, _) = gix_discover::upwards(Path::new(".")).ok()?;
+        let (gix_dir, work_tree) = repo_path.into_repository_and_work_tree_directories();
         let work_tree = work_tree?.canonicalize().ok()?;
 
         let mut buf = Vec::with_capacity(512);
-        let case = git_worktree::fs::Capabilities::probe(&work_tree)
+        let case = gix_worktree::fs::Capabilities::probe(&work_tree)
             .ignore_case
-            .then(|| git_attributes::glob::pattern::Case::Fold)
+            .then_some(gix_attributes::glob::pattern::Case::Fold)
             .unwrap_or_default();
-        let state = git_worktree::fs::cache::State::IgnoreStack(git_worktree::fs::cache::state::Ignore::new(
+        let state = gix_worktree::fs::cache::State::IgnoreStack(gix_worktree::fs::cache::state::Ignore::new(
             Default::default(),
-            git_attributes::MatchGroup::<git_attributes::Ignore>::from_git_dir(git_dir, None, &mut buf).ok()?,
+            gix_attributes::MatchGroup::<gix_attributes::Ignore>::from_git_dir(gix_dir, None, &mut buf).ok()?,
             None,
             case,
         ));
-        Some(git_worktree::fs::Cache::new(
+        Some(gix_worktree::fs::Cache::new(
             work_tree,
             state,
             case,
@@ -81,7 +81,7 @@ static EXCLUDE_LUT: Lazy<Mutex<Option<git_worktree::fs::Cache<'static>>>> = Lazy
     Mutex::new(cache)
 });
 /// The major, minor and patch level of the git version on the system.
-pub static GIT_VERSION: Lazy<(u8, u8, u8)> = Lazy::new(|| parse_git_version().expect("git version to be parsable"));
+pub static GIT_VERSION: Lazy<(u8, u8, u8)> = Lazy::new(|| parse_gix_version().expect("git version to be parsable"));
 
 /// Define how [scripted_fixture_writable_with_args()] uses produces the writable copy.
 pub enum Creation {
@@ -106,9 +106,9 @@ pub fn should_skip_as_git_version_is_smaller_than(major: u8, minor: u8, patch: u
     *GIT_VERSION < (major, minor, patch)
 }
 
-fn parse_git_version() -> Result<(u8, u8, u8)> {
-    let git_program = cfg!(windows).then(|| "git.exe").unwrap_or("git");
-    let output = std::process::Command::new(git_program).arg("--version").output()?;
+fn parse_gix_version() -> Result<(u8, u8, u8)> {
+    let gix_program = cfg!(windows).then(|| "git.exe").unwrap_or("git");
+    let output = std::process::Command::new(gix_program).arg("--version").output()?;
 
     git_version_from_bytes(&output.stdout)
 }
@@ -137,6 +137,28 @@ fn git_version_from_bytes(bytes: &[u8]) -> Result<(u8, u8, u8)> {
             err
         )
     })?)
+}
+
+/// Set the current working dir to `new_cwd` and return a type that returns to the previous working dir on drop.
+pub fn set_current_dir(new_cwd: impl AsRef<Path>) -> std::io::Result<AutoRevertToPreviousCWD> {
+    let cwd = std::env::current_dir()?;
+    std::env::set_current_dir(new_cwd)?;
+    Ok(AutoRevertToPreviousCWD(cwd))
+}
+
+/// A utility to set the current working dir to the given value, on drop.
+///
+/// # Panics
+///
+/// Note that this will panic if the CWD cannot be set on drop.
+#[derive(Debug)]
+#[must_use]
+pub struct AutoRevertToPreviousCWD(PathBuf);
+
+impl Drop for AutoRevertToPreviousCWD {
+    fn drop(&mut self) {
+        std::env::set_current_dir(&self.0).unwrap();
+    }
 }
 
 /// Run `git` in `working_dir` with all provided `args`.
@@ -175,7 +197,7 @@ pub fn spawn_git_daemon(working_dir: impl AsRef<Path>) -> std::io::Result<GitDae
         .spawn()?;
 
     let server_addr = addr_at(free_port);
-    for time in git_lock::backoff::Exponential::default_with_random() {
+    for time in gix_lock::backoff::Exponential::default_with_random() {
         std::thread::sleep(time);
         if std::net::TcpStream::connect(server_addr).is_ok() {
             break;
@@ -183,23 +205,45 @@ pub fn spawn_git_daemon(working_dir: impl AsRef<Path>) -> std::io::Result<GitDae
     }
     Ok(GitDaemon {
         child,
-        url: format!("git://{}", server_addr),
+        url: format!("git://{server_addr}"),
     })
 }
 
-/// Convert a hexadecimal hash into its corresponding `ObjectId` or _panic_.
-pub fn hex_to_id(hex: &str) -> git_hash::ObjectId {
-    git_hash::ObjectId::from_hex(hex.as_bytes()).expect("40 bytes hex")
+#[derive(Copy, Clone)]
+enum DirectoryRoot {
+    IntegrationTest,
+    StandaloneTest,
 }
 
 /// Return the path to the `<crate-root>/tests/fixtures/<path>` directory.
 pub fn fixture_path(path: impl AsRef<Path>) -> PathBuf {
-    PathBuf::from("tests").join("fixtures").join(path.as_ref())
+    fixture_path_inner(path, DirectoryRoot::IntegrationTest)
+}
+
+/// Return the path to the `<crate-root>/fixtures/<path>` directory.
+pub fn fixture_path_standalone(path: impl AsRef<Path>) -> PathBuf {
+    fixture_path_inner(path, DirectoryRoot::StandaloneTest)
+}
+/// Return the path to the `<crate-root>/tests/fixtures/<path>` directory.
+fn fixture_path_inner(path: impl AsRef<Path>, root: DirectoryRoot) -> PathBuf {
+    match root {
+        DirectoryRoot::StandaloneTest => PathBuf::from("fixtures").join(path.as_ref()),
+        DirectoryRoot::IntegrationTest => PathBuf::from("tests").join("fixtures").join(path.as_ref()),
+    }
 }
 
 /// Load the fixture from `<crate-root>/tests/fixtures/<path>` and return its data, or _panic_.
 pub fn fixture_bytes(path: impl AsRef<Path>) -> Vec<u8> {
-    match std::fs::read(fixture_path(path.as_ref())) {
+    fixture_bytes_inner(path, DirectoryRoot::IntegrationTest)
+}
+
+/// Like [`scripted_fixture_writable`], but does not prefix the fixture directory with `tests`
+pub fn fixture_bytes_standalone(path: impl AsRef<Path>) -> Vec<u8> {
+    fixture_bytes_inner(path, DirectoryRoot::StandaloneTest)
+}
+
+fn fixture_bytes_inner(path: impl AsRef<Path>, root: DirectoryRoot) -> Vec<u8> {
+    match std::fs::read(fixture_path_inner(path.as_ref(), root)) {
         Ok(res) => res,
         Err(_) => panic!("File at '{}' not found", path.as_ref().display()),
     }
@@ -217,7 +261,7 @@ pub fn fixture_bytes(path: impl AsRef<Path>) -> Vec<u8> {
 /// If a script result doesn't exist, these will be checked first and extracted if present, which they are by default.
 /// This behaviour can be prohibited by setting the `GITOXIDE_TEST_IGNORE_ARCHIVES` to any value.
 ///
-/// To speed CI up, one can add these archives to the repository. It's absolutely recommended to use `git-lfs` for that to
+/// To speed CI up, one can add these archives to the repository. It's absolutely recommended to use `gix-lfs` for that to
 /// not bloat the repository size.
 ///
 /// #### Disable Archive Creation
@@ -231,12 +275,22 @@ pub fn scripted_fixture_read_only(script_name: impl AsRef<Path>) -> Result<PathB
     scripted_fixture_read_only_with_args(script_name, None::<String>)
 }
 
+/// Like [`scripted_fixture_read_only`], but does not prefix the fixture directory with `tests`
+pub fn scripted_fixture_read_only_standalone(script_name: impl AsRef<Path>) -> Result<PathBuf> {
+    scripted_fixture_read_only_with_args_standalone(script_name, None::<String>)
+}
+
 /// Run the executable at `script_name`, like `make_repo.sh` to produce a writable directory to which
 /// the tempdir is returned. It will be removed automatically, courtesy of [`tempfile::TempDir`].
 ///
 /// Note that `script_name` is only executed once, so the data can be copied from its read-only location.
 pub fn scripted_fixture_writable(script_name: &str) -> Result<tempfile::TempDir> {
     scripted_fixture_writable_with_args(script_name, None::<String>, Creation::CopyFromReadOnly)
+}
+
+/// Like [`scripted_fixture_writable`], but does not prefix the fixture directory with `tests`
+pub fn scripted_fixture_writable_standalone(script_name: &str) -> Result<tempfile::TempDir> {
+    scripted_fixture_writable_with_args_standalone(script_name, None::<String>, Creation::CopyFromReadOnly)
 }
 
 /// Like [`scripted_fixture_writable()`], but passes `args` to `script_name` while providing control over
@@ -246,15 +300,33 @@ pub fn scripted_fixture_writable_with_args(
     args: impl IntoIterator<Item = impl Into<String>>,
     mode: Creation,
 ) -> Result<tempfile::TempDir> {
+    scripted_fixture_writable_with_args_inner(script_name, args, mode, DirectoryRoot::IntegrationTest)
+}
+
+/// Like [`scripted_fixture_writable_with_args`], but does not prefix the fixture directory with `tests`
+pub fn scripted_fixture_writable_with_args_standalone(
+    script_name: &str,
+    args: impl IntoIterator<Item = impl Into<String>>,
+    mode: Creation,
+) -> Result<tempfile::TempDir> {
+    scripted_fixture_writable_with_args_inner(script_name, args, mode, DirectoryRoot::StandaloneTest)
+}
+
+fn scripted_fixture_writable_with_args_inner(
+    script_name: &str,
+    args: impl IntoIterator<Item = impl Into<String>>,
+    mode: Creation,
+    root: DirectoryRoot,
+) -> Result<tempfile::TempDir> {
     let dst = tempfile::TempDir::new()?;
     Ok(match mode {
         Creation::CopyFromReadOnly => {
-            let ro_dir = scripted_fixture_read_only_with_args_inner(script_name, args, None)?;
+            let ro_dir = scripted_fixture_read_only_with_args_inner(script_name, args, None, root)?;
             copy_recursively_into_existing_dir(ro_dir, dst.path())?;
             dst
         }
         Creation::ExecuteScript => {
-            scripted_fixture_read_only_with_args_inner(script_name, args, dst.path().into())?;
+            scripted_fixture_read_only_with_args_inner(script_name, args, dst.path().into(), root)?;
             dst
         }
     })
@@ -284,21 +356,30 @@ pub fn scripted_fixture_read_only_with_args(
     script_name: impl AsRef<Path>,
     args: impl IntoIterator<Item = impl Into<String>>,
 ) -> Result<PathBuf> {
-    scripted_fixture_read_only_with_args_inner(script_name, args, None)
+    scripted_fixture_read_only_with_args_inner(script_name, args, None, DirectoryRoot::IntegrationTest)
+}
+
+/// Like [`scripted_fixture_read_only_with_args()`], but does not prefix the fixture directory with `tests`
+pub fn scripted_fixture_read_only_with_args_standalone(
+    script_name: impl AsRef<Path>,
+    args: impl IntoIterator<Item = impl Into<String>>,
+) -> Result<PathBuf> {
+    scripted_fixture_read_only_with_args_inner(script_name, args, None, DirectoryRoot::StandaloneTest)
 }
 
 fn scripted_fixture_read_only_with_args_inner(
     script_name: impl AsRef<Path>,
     args: impl IntoIterator<Item = impl Into<String>>,
     destination_dir: Option<&Path>,
+    root: DirectoryRoot,
 ) -> Result<PathBuf> {
     // Assure tempfiles get removed when aborting the test.
-    git_lock::tempfile::setup(
-        git_lock::tempfile::SignalHandlerMode::DeleteTempfilesOnTerminationAndRestoreDefaultBehaviour,
+    gix_lock::tempfile::setup(
+        gix_lock::tempfile::SignalHandlerMode::DeleteTempfilesOnTerminationAndRestoreDefaultBehaviour,
     );
 
     let script_location = script_name.as_ref();
-    let script_path = fixture_path(script_location);
+    let script_path = fixture_path_inner(script_location, root);
 
     // keep this lock to assure we don't return unfinished directories for threaded callers
     let args: Vec<String> = args.into_iter().map(Into::into).collect();
@@ -323,21 +404,25 @@ fn scripted_fixture_read_only_with_args_inner(
     };
 
     let script_basename = script_location.file_stem().unwrap_or(script_location.as_os_str());
-    let archive_file_path = fixture_path(
+    let archive_file_path = fixture_path_inner(
         Path::new("generated-archives").join(format!("{}.tar.xz", script_basename.to_str().expect("valid UTF-8"))),
+        root,
     );
     let (force_run, script_result_directory) = destination_dir.map(|d| (true, d.to_owned())).unwrap_or_else(|| {
-        let dir = fixture_path(Path::new("generated-do-not-edit").join(script_basename).join(format!(
-            "{}-{}",
-            script_identity,
-            family_name()
-        )));
+        let dir = fixture_path_inner(
+            Path::new("generated-do-not-edit").join(script_basename).join(format!(
+                "{}-{}",
+                script_identity,
+                family_name()
+            )),
+            root,
+        );
         (false, dir)
     });
 
-    let _marker = git_lock::Marker::acquire_to_hold_resource(
+    let _marker = gix_lock::Marker::acquire_to_hold_resource(
         script_basename,
-        git_lock::acquire::Fail::AfterDurationWithBackoff(Duration::from_secs(3 * 60)),
+        gix_lock::acquire::Fail::AfterDurationWithBackoff(Duration::from_secs(3 * 60)),
         None,
     )?;
     let failure_marker = script_result_directory.join("_invalid_state_due_to_script_failure_");
@@ -433,7 +518,7 @@ fn write_failure_marker(failure_marker: &Path) {
 }
 
 fn is_lfs_pointer_file(path: &Path) -> bool {
-    const PREFIX: &[u8] = b"version https://git-lfs";
+    const PREFIX: &[u8] = b"version https://gix-lfs";
     let mut buf = [0_u8; PREFIX.len()];
     std::fs::OpenOptions::new()
         .read(true)
@@ -453,7 +538,7 @@ fn create_archive_if_not_on_ci(source_dir: &Path, archive: &Path, script_identit
     }
     if is_lfs_pointer_file(archive) {
         eprintln!(
-            "Refusing to overwrite `git-lfs` pointer file at \"{}\" - git lfs might not be properly installed.",
+            "Refusing to overwrite `gix-lfs` pointer file at \"{}\" - git lfs might not be properly installed.",
             archive.display()
         );
         return Ok(());
@@ -483,6 +568,7 @@ fn create_archive_if_not_on_ci(source_dir: &Path, archive: &Path, script_identit
     std::fs::remove_dir_all(meta_dir)?;
     #[cfg(windows)]
     std::fs::remove_dir_all(meta_dir).ok(); // it really can't delete these directories for some reason (even after 10 seconds)
+
     res
 }
 

@@ -47,23 +47,23 @@ The following schematic helps to visualize what follows.
     ║    └───────────────────────────────────┘    ║   
     ║                      │                      ║   
     ║                      ▼                      ║   
-    ║    git-repository──────────────────────┐    ║   
+    ║    gix   ──────────────────────────────┐    ║   
     ║    │                application crate  │─ ─ ╬ ─ 
     ║    └───────────────────────────────────┘    ║  │
     ║                      │                      ║   
     ║                      ▼                      ║  │
     ║    Foundation Crates───────────────────┐    ║   
     ║    │ ┌─────────────┐   ┌─────────────┐ │    ║  │
-    ║    │ │  git-hash   │   │  git-actor  │ │    ║   
+    ║    │ │  gix-hash   │   │  gix-actor  │ │    ║   
     ║    │ └─────────────┘   └─────────────┘ │    ║  │
     ║    │ ┌─────────────┐   ┌─────────────┐ │    ║   
-    ║    │ │   git-ref   │   │ git-config  │ │    ║  │
+    ║    │ │   gix-ref   │   │ gix-config  │ │    ║  │
     ║    │ └─────────────┘   └─────────────┘ │    ║   
     ║    │ ┌─────────────┐   ┌─────────────┐ │    ║  │
-    ║    │ │ git-object  │   │  git-lock   │ │    ║   
+    ║    │ │ gix-object  │   │  gix-lock   │ │    ║   
     ║    │ └─────────────┘   └─────────────┘ │    ║  │
     ║    │ ┌───────────────────────────────┐ │    ║   
-    ║    │ │         git-features          │ │    ║  │
+    ║    │ │         gix-features          │ │    ║  │
     ║    │ └───────────────────────────────┘ │    ║   
     ║    └───────────────────────────────────┘    ║  │
     ║                                             ║   
@@ -73,10 +73,10 @@ The following schematic helps to visualize what follows.
     │                                             │   
     │    Plumbing Crates─────────────────────┐    │  │
     │    │ ┌─────────────┐   ┌─────────────┐ │    │   
-    │    │ │   git-odb   │   │  git-diff   │ │    │  │
+    │    │ │   gix-odb   │   │  gix-diff   │ │    │  │
     │    │ └─────────────┘   └─────────────┘ │    │   
     │    │ ┌─────────────┐   ┌─────────────┐ │    │  │
-    │    │ │git-traverse │   │  git-pack   │ │◀ ─ ┼ ─ 
+    │    │ │gix-traverse │   │  gix-pack   │ │◀ ─ ┼ ─ 
     │    │ └─────────────┘   └─────────────┘ │    │   
     │    │ ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐ │    │   
     │    │            …many more…            │    │   
@@ -98,8 +98,8 @@ Released plumbing crates are marked with major version number 1 or above, for ex
 
 Breaking changes are collected and may be released no more often than every 4 weeks by incrementing the major version number.
 
-For example, `git-odb` and `git-ref` both have breaking changes, where `git-odb`'s change is on August 1st and `git-ref`'s dependent change
-is on September 10th. `git-odb`'s breaking change can be released earliest on September 1st, whereas `git-ref` can be released earliest at October 10th.
+For example, `gix-odb` and `gix-ref` both have breaking changes, where `gix-odb`'s change is on August 1st and `gix-ref`'s dependent change
+is on September 10th. `gix-odb`'s breaking change can be released earliest on September 1st, whereas `gix-ref` can be released earliest at October 10th.
 
 If there are additional breaking changes without a release, these push back the earliest release date accordingly.
 
@@ -123,7 +123,7 @@ Minor version updates for new features can be released when needed assuming ther
 
 ## The _Minimal Supported Rust Version_ (->MSRV)
 
-The MSRV is automatically assumed to be the latest stable version for all crates with the following exception: `git-repository` and all it's dependencies must
+The MSRV is automatically assumed to be the latest stable version for all crates with the following exception: `gix` and all it's dependencies must
 adhere to an MSRV, as validated by the `msrv.yml` GitHub workflow.
 
 Increasing the MSRV is considered a breaking change and warrants a major version bump itself for stable crates and a minor version bump for IDP crates.

@@ -3,10 +3,10 @@ set -eu
 
 title plumbing "${kind}"
 snapshot="$snapshot/plumbing"
-title "git-tempfile crate"
-(when "testing 'git-tempfile'"
-  snapshot="$snapshot/git-tempfile"
-  cd git-tempfile
+title "gix-tempfile crate"
+(when "testing 'gix-tempfile'"
+  snapshot="$snapshot/gix-tempfile"
+  cd gix-tempfile
   ABORTED=143
 
   (when "running the example program to raise a signal with a tempfile present"
@@ -30,10 +30,10 @@ title "git-tempfile crate"
   )
 )
 
-title "git-tempfile crate"
-(when "testing 'git-repository'"
-  snapshot="$snapshot/git-repository"
-  cd git-repository
+title "gix-tempfile crate"
+(when "testing 'gix'"
+  snapshot="$snapshot/gix"
+  cd gix
   ABORTED=143
 
   (when "running the example program to check order of signal handlers"

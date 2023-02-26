@@ -18,7 +18,7 @@ fn fixup(v: String) -> String {
 }
 
 fn fixture(name: &str) -> std::io::Result<String> {
-    let data = std::fs::read_to_string(git_testtools::fixture_path(
+    let data = std::fs::read_to_string(gix_testtools::fixture_path(
         Path::new("changelog").join("parse").join(name),
     ))?;
     Ok(fixup(data))
@@ -58,7 +58,7 @@ fn all_unknown_in_section() {
 }
 
 #[test]
-fn unknown_link_and_headling() {
+fn unknown_link_and_headline() {
     let fixture = fixture("known-section-unknown-headline-with-link.md").unwrap();
     let log = ChangeLog::from_markdown(&fixture);
     assert_eq!(

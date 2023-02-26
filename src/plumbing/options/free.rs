@@ -39,8 +39,8 @@ pub mod index {
     #[derive(Debug, clap::Parser)]
     pub struct Platform {
         /// The object format to assume when reading files that don't inherently know about it, or when writing files.
-        #[clap(long, default_value_t = git_repository::hash::Kind::default(), possible_values(&["SHA1"]))]
-        pub object_hash: git_repository::hash::Kind,
+        #[clap(long, default_value_t = gix::hash::Kind::default(), value_parser = crate::shared::AsHashKind)]
+        pub object_hash: gix::hash::Kind,
 
         /// The path to the index file.
         #[clap(short = 'i', long, default_value = ".git/index")]
@@ -101,7 +101,7 @@ pub mod pack {
             /// the directory containing the '.git' repository from which objects should be read.
             repository: Option<PathBuf>,
 
-            #[clap(long, short = 'e', possible_values(core::pack::create::ObjectExpansion::variants()))]
+            #[clap(long, short = 'e', value_parser = AsObjectExpansion)]
             /// the way objects are expanded. They differ in costs.
             ///
             /// Possible values are "none" and "tree-traversal". Default is "none".
@@ -162,7 +162,7 @@ pub mod pack {
             /// Otherwise the expansion mode is 'tree-traversal' by default.
             tips: Vec<OsString>,
         },
-        /// Use the git-protocol to receive a pack, emulating a clone.
+        /// Use the gix-protocol to receive a pack, emulating a clone.
         #[cfg(any(feature = "gitoxide-core-async-client", feature = "gitoxide-core-blocking-client"))]
         Receive {
             /// The protocol version to use. Valid values are 1 and 2
@@ -211,7 +211,7 @@ pub mod pack {
                 long,
                 short = 'c',
                 default_value = "all",
-                possible_values(core::pack::explode::SafetyCheck::variants())
+                value_parser = AsSafetyCheck
             )]
             check: core::pack::explode::SafetyCheck,
 
@@ -249,11 +249,11 @@ pub mod pack {
             long,
             short = 'a',
             default_value = "less-time",
-            possible_values(core::pack::verify::Algorithm::variants())
+            value_parser = AsAlgorithm
         )]
         pub algorithm: core::pack::verify::Algorithm,
 
-        #[clap(long, conflicts_with("re-encode"))]
+        #[clap(long, conflicts_with("re_encode"))]
         /// Decode and parse tags, commits and trees to validate their correctness beyond hashing correctly.
         ///
         /// Malformed objects should not usually occur, but could be injected on purpose or accident.
@@ -310,6 +310,8 @@ pub mod pack {
 
         use gitoxide_core as core;
 
+        use super::AsIterationMode;
+
         #[derive(Debug, clap::Subcommand)]
         pub enum Subcommands {
             /// create a pack index from a pack data file.
@@ -326,7 +328,7 @@ pub mod pack {
                     long,
                     short = 'i',
                     default_value = "verify",
-                    possible_values(core::pack::index::IterationMode::variants())
+                    value_parser = AsIterationMode
                 )]
                 iteration_mode: core::pack::index::IterationMode,
 
@@ -343,6 +345,100 @@ pub mod pack {
             },
         }
     }
+
+    mod clap_util {
+        use std::{ffi::OsStr, str::FromStr};
+
+        use clap::{
+            builder::{NonEmptyStringValueParser, PossibleValue, TypedValueParser},
+            Arg, Command, Error,
+        };
+
+        #[derive(Clone)]
+        pub struct AsObjectExpansion;
+
+        impl TypedValueParser for AsObjectExpansion {
+            type Value = gitoxide_core::pack::create::ObjectExpansion;
+
+            fn parse_ref(&self, cmd: &Command, arg: Option<&Arg>, value: &OsStr) -> Result<Self::Value, Error> {
+                NonEmptyStringValueParser::new()
+                    .try_map(|arg| gitoxide_core::pack::create::ObjectExpansion::from_str(&arg))
+                    .parse_ref(cmd, arg, value)
+            }
+
+            fn possible_values(&self) -> Option<Box<dyn Iterator<Item = PossibleValue> + '_>> {
+                Some(Box::new(
+                    gitoxide_core::pack::create::ObjectExpansion::variants()
+                        .iter()
+                        .map(PossibleValue::new),
+                ))
+            }
+        }
+
+        #[derive(Clone)]
+        pub struct AsSafetyCheck;
+
+        impl TypedValueParser for AsSafetyCheck {
+            type Value = gitoxide_core::pack::explode::SafetyCheck;
+
+            fn parse_ref(&self, cmd: &Command, arg: Option<&Arg>, value: &OsStr) -> Result<Self::Value, Error> {
+                NonEmptyStringValueParser::new()
+                    .try_map(|arg| gitoxide_core::pack::explode::SafetyCheck::from_str(&arg))
+                    .parse_ref(cmd, arg, value)
+            }
+
+            fn possible_values(&self) -> Option<Box<dyn Iterator<Item = PossibleValue> + '_>> {
+                Some(Box::new(
+                    gitoxide_core::pack::explode::SafetyCheck::variants()
+                        .iter()
+                        .map(PossibleValue::new),
+                ))
+            }
+        }
+
+        #[derive(Clone)]
+        pub struct AsAlgorithm;
+
+        impl TypedValueParser for AsAlgorithm {
+            type Value = gitoxide_core::pack::verify::Algorithm;
+
+            fn parse_ref(&self, cmd: &Command, arg: Option<&Arg>, value: &OsStr) -> Result<Self::Value, Error> {
+                NonEmptyStringValueParser::new()
+                    .try_map(|arg| gitoxide_core::pack::verify::Algorithm::from_str(&arg))
+                    .parse_ref(cmd, arg, value)
+            }
+
+            fn possible_values(&self) -> Option<Box<dyn Iterator<Item = PossibleValue> + '_>> {
+                Some(Box::new(
+                    gitoxide_core::pack::verify::Algorithm::variants()
+                        .iter()
+                        .map(PossibleValue::new),
+                ))
+            }
+        }
+
+        #[derive(Clone)]
+        pub struct AsIterationMode;
+
+        impl TypedValueParser for AsIterationMode {
+            type Value = gitoxide_core::pack::index::IterationMode;
+
+            fn parse_ref(&self, cmd: &Command, arg: Option<&Arg>, value: &OsStr) -> Result<Self::Value, Error> {
+                NonEmptyStringValueParser::new()
+                    .try_map(|arg| gitoxide_core::pack::index::IterationMode::from_str(&arg))
+                    .parse_ref(cmd, arg, value)
+            }
+
+            fn possible_values(&self) -> Option<Box<dyn Iterator<Item = PossibleValue> + '_>> {
+                Some(Box::new(
+                    gitoxide_core::pack::index::IterationMode::variants()
+                        .iter()
+                        .map(PossibleValue::new),
+                ))
+            }
+        }
+    }
+    use clap_util::{AsAlgorithm, AsIterationMode, AsObjectExpansion, AsSafetyCheck};
 }
 
 ///

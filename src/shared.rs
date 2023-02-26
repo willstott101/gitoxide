@@ -48,7 +48,7 @@ pub mod pretty {
     use std::io::{stderr, stdout};
 
     use anyhow::Result;
-    use git_features::progress;
+    use gix_features::progress;
 
     use crate::shared::ProgressRange;
 
@@ -165,7 +165,7 @@ pub mod pretty {
                         tx.send(Event::UiDone).ok();
                     }
                 });
-                std::thread::spawn(move || {
+                let thread = std::thread::spawn(move || {
                     // We might have something interesting to show, which would be hidden by the alternate screen if there is a progress TUI
                     // We know that the printing happens at the end, so this is fine.
                     let mut out = Vec::new();
@@ -173,18 +173,22 @@ pub mod pretty {
                     tx.send(Event::ComputationDone(res, out)).ok();
                 });
                 loop {
-                    match rx.recv()? {
-                        Event::UiDone => {
+                    match rx.recv() {
+                        Ok(Event::UiDone) => {
                             // We don't know why the UI is done, usually it's the user aborting.
                             // We need the computation to stop as well so let's wait for that to happen
-                            git_repository::interrupt::trigger();
+                            gix::interrupt::trigger();
                             continue;
                         }
-                        Event::ComputationDone(res, out) => {
+                        Ok(Event::ComputationDone(res, out)) => {
                             ui_handle.join().ok();
                             stdout().write_all(&out)?;
                             break res;
                         }
+                        Err(_err) => match thread.join() {
+                            Ok(()) => unreachable!("BUG: We shouldn't fail to receive unless the thread has panicked"),
+                            Err(panic) => std::panic::resume_unwind(panic),
+                        },
                     }
                 }
             }
@@ -235,3 +239,72 @@ pub fn from_env<T: argh::TopLevelCommand>() -> T {
         })
     })
 }
+
+mod clap {
+    use std::{ffi::OsStr, str::FromStr};
+
+    use clap::{builder, builder::PossibleValue, error::ErrorKind, Arg, Command, Error};
+    use gitoxide_core as core;
+    use gix::bstr::BString;
+
+    #[derive(Clone)]
+    pub struct AsBString;
+
+    impl builder::TypedValueParser for AsBString {
+        type Value = BString;
+
+        fn parse_ref(&self, _cmd: &Command, _arg: Option<&Arg>, value: &OsStr) -> Result<Self::Value, Error> {
+            gix::env::os_str_to_bstring(value).ok_or_else(|| Error::new(ErrorKind::InvalidUtf8))
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct AsOutputFormat;
+
+    impl builder::TypedValueParser for AsOutputFormat {
+        type Value = core::OutputFormat;
+
+        fn parse_ref(&self, cmd: &Command, arg: Option<&Arg>, value: &OsStr) -> Result<Self::Value, Error> {
+            builder::StringValueParser::new()
+                .try_map(|arg| core::OutputFormat::from_str(&arg))
+                .parse_ref(cmd, arg, value)
+        }
+
+        fn possible_values(&self) -> Option<Box<dyn Iterator<Item = PossibleValue> + '_>> {
+            Some(Box::new(core::OutputFormat::variants().iter().map(PossibleValue::new)))
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct AsHashKind;
+
+    impl builder::TypedValueParser for AsHashKind {
+        type Value = gix::hash::Kind;
+
+        fn parse_ref(&self, cmd: &Command, arg: Option<&Arg>, value: &OsStr) -> Result<Self::Value, Error> {
+            builder::StringValueParser::new()
+                .try_map(|arg| gix::hash::Kind::from_str(&arg))
+                .parse_ref(cmd, arg, value)
+        }
+
+        fn possible_values(&self) -> Option<Box<dyn Iterator<Item = PossibleValue> + '_>> {
+            Some(Box::new([PossibleValue::new("SHA1")].into_iter()))
+        }
+    }
+
+    use clap::builder::{OsStringValueParser, TypedValueParser};
+
+    #[derive(Clone)]
+    pub struct AsPathSpec;
+
+    impl TypedValueParser for AsPathSpec {
+        type Value = gix::path::Spec;
+
+        fn parse_ref(&self, cmd: &Command, arg: Option<&Arg>, value: &OsStr) -> Result<Self::Value, Error> {
+            OsStringValueParser::new()
+                .try_map(|arg| gix::path::Spec::try_from(arg.as_os_str()))
+                .parse_ref(cmd, arg, value)
+        }
+    }
+}
+pub use self::clap::{AsBString, AsHashKind, AsOutputFormat, AsPathSpec};

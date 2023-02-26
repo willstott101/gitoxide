@@ -2,7 +2,7 @@
 name = "gitoxide-core"
 description = "The library implementing all capabilities of the gitoxide CLI"
 repository = "https://github.com/Byron/gitoxide"
-version = "0.22.0"
+version = "0.25.0"
 authors = ["Sebastian Thiel <sebastian.thiel@icloud.com>"]
 license = "MIT/Apache-2.0"
 edition = "2021"
@@ -16,30 +16,32 @@ default = []
 
 #! ### Tools
 ## Discover all git repositories within a directory. Particularly useful with [skim](https://github.com/lotabout/skim).
-organize = ["git-url", "jwalk"]
+organize = ["dep:gix-url", "dep:jwalk"]
 ## Derive the amount of time invested into a git repository akin to [git-hours](https://github.com/kimmobrunfeldt/git-hours).
-estimate-hours = ["itertools", "fs-err", "num_cpus", "crossbeam-channel", "mime_guess"]
+estimate-hours = ["dep:itertools", "dep:fs-err", "dep:crossbeam-channel", "dep:mime_guess"]
+## Gather information about repositories and store it in a database for easy querying.
+query = ["dep:rusqlite"]
 
 #! ### Mutually Exclusive Networking
 #! If both are set, _blocking-client_ will take precedence, allowing `--all-features` to be used.
 
 ## If set, the client used to connect to git servers will use a blocking API. It supports more transports and is what most would want.
-blocking-client = ["git-repository/blocking-network-client"]
+blocking-client = ["gix/blocking-network-client"]
 ## The client to connect to git servers will be async, while supporting only the 'git' transport itself.
 ## It's the most limited and can be seen as example on how to use custom transports for custom servers.
-async-client = ["git-repository/async-network-client-async-std", "git-transport-configuration-only/async-std", "async-trait", "futures-io", "async-net", "async-io", "futures-lite", "blocking"]
+async-client = ["gix/async-network-client-async-std", "gix-transport-configuration-only/async-std", "async-trait", "futures-io", "async-net", "async-io", "futures-lite", "blocking"]
 
 #! ### Other
 ## Data structures implement `serde::Serialize` and `serde::Deserialize`.
-serde1 = ["git-commitgraph/serde1", "git-repository/serde1", "serde_json", "serde", "bytesize/serde"]
+serde1 = ["gix-commitgraph/serde1", "gix/serde1", "serde_json", "serde", "bytesize/serde"]
 
 
 [dependencies]
 # deselect everything else (like "performance") as this should be controllable by the parent application.
-git-repository = { version = "^0.30.0", path = "../git-repository", default-features = false }
-git-pack-for-configuration-only = { package = "git-pack", version = "^0.28.0", path = "../git-pack", default-features = false, features = ["pack-cache-lru-dynamic", "pack-cache-lru-static"] }
-git-transport-configuration-only = { package = "git-transport", version = "^0.24.0", path = "../git-transport", default-features = false }
-git-commitgraph = { version = "^0.12.0", path = "../git-commitgraph" }
+gix = { version = "^0.37.2", path = "../gix", default-features = false }
+gix-pack-for-configuration-only = { package = "gix-pack", version = "^0.30.3", path = "../gix-pack", default-features = false, features = ["pack-cache-lru-dynamic", "pack-cache-lru-static"] }
+gix-transport-configuration-only = { package = "gix-transport", version = "^0.25.6", path = "../gix-transport", default-features = false }
+gix-commitgraph = { version = "^0.13.1", path = "../gix-commitgraph" }
 serde = { version = "1.0.114", optional = true, default-features = false, features = ["derive"] }
 anyhow = "1.0.42"
 thiserror = "1.0.34"
@@ -56,15 +58,17 @@ futures-io = { version = "0.3.16", optional = true }
 blocking = { version = "1.0.2", optional = true }
 
 # for 'organize' functionality
-git-url = { version = "^0.12.0", path = "../git-url", optional = true }
+gix-url = { version = "^0.13.3", path = "../gix-url", optional = true }
 jwalk = { version = "0.8.0", optional = true }
 
 # for 'hours'
 itertools = { version = "0.10.1", optional = true }
 fs-err = { version = "2.6.0", optional = true }
-num_cpus = { version = "1.13.1", optional = true }
 crossbeam-channel = { version = "0.5.6", optional = true }
 mime_guess = { version = "2.0.4", optional = true }
+
+# for 'query'
+rusqlite = { version = "0.28.0", optional = true, features = ["bundled"] }
 
 document-features = { version = "0.2.0", optional = true }
 

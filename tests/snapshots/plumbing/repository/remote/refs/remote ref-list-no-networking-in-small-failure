@@ -1,6 +1,8 @@
-error: Found argument 'remote' which wasn't expected, or isn't valid in this context
+error: unrecognized subcommand 'remote'
 
-USAGE:
-    gix [OPTIONS] <SUBCOMMAND>
+  note: subcommands 'r', 'tree', 'free' exist
+  note: to pass 'remote' as a value, use 'gix -- remote'
 
-For more information try --help
+Usage: gix [OPTIONS] <COMMAND>
+
+For more information, try '--help'.

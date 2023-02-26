@@ -80,7 +80,7 @@ pub fn release(opts: Options, crates: Vec<String>, bump: BumpSpec, bump_dependen
     Ok(())
 }
 
-impl From<Options> for crate::traverse::Options {
+impl From<Options> for traverse::Options {
     fn from(v: Options) -> Self {
         Self {
             allow_auto_publish_of_stable_crates: v.allow_auto_publish_of_stable_crates,
@@ -93,7 +93,7 @@ impl From<Options> for crate::traverse::Options {
 
 fn release_depth_first(ctx: Context, opts: Options) -> anyhow::Result<()> {
     let crates = {
-        crate::traverse::dependencies(&ctx.base, opts.into())
+        traverse::dependencies(&ctx.base, opts.into())
             .and_then(|crates| assure_crates_index_is_uptodate(crates, &ctx.base, opts.into()))
             .and_then(|crates| {
                 present_and_validate_dependencies(&crates, &ctx, opts.verbose, opts.dry_run).map(|_| crates)
@@ -109,7 +109,7 @@ fn release_depth_first(ctx: Context, opts: Options) -> anyhow::Result<()> {
 fn assure_crates_index_is_uptodate<'meta>(
     crates: Vec<Dependency<'meta>>,
     ctx: &'meta crate::Context,
-    opts: crate::traverse::Options,
+    opts: traverse::Options,
 ) -> anyhow::Result<Vec<Dependency<'meta>>> {
     if let Some(dep) = crates
         .iter()
@@ -117,21 +117,21 @@ fn assure_crates_index_is_uptodate<'meta>(
         .find_map(|(d, b)| {
             b.latest_release
                 .as_ref()
-                .and_then(|lr| (lr >= &b.next_release).then(|| d))
+                .and_then(|lr| (lr >= &b.next_release).then_some(d))
         })
     {
         let mut index = crate::crates_index::Index::new_cargo_default()?;
         if index.exists() {
             log::warn!("Crate '{}' computed version not greater than the current package version. Updating crates index to assure correct results.", dep.package.name);
             index.update()?;
-            return crate::traverse::dependencies(ctx, opts);
+            return traverse::dependencies(ctx, opts);
         }
     }
     Ok(crates)
 }
 
 fn present_and_validate_dependencies(
-    crates: &[traverse::Dependency<'_>],
+    crates: &[Dependency<'_>],
     ctx: &Context,
     verbose: bool,
     dry_run: bool,
@@ -172,7 +172,7 @@ fn present_and_validate_dependencies(
 
     let skipped = all_skipped
         .iter()
-        .filter_map(|(name, has_adjustment, reason)| (!has_adjustment).then(|| (*name, reason)))
+        .filter_map(|(name, has_adjustment, reason)| (!has_adjustment).then_some((*name, reason)))
         .collect::<Vec<_>>();
     if !skipped.is_empty() {
         let skipped_len = skipped.len();
@@ -189,7 +189,7 @@ fn present_and_validate_dependencies(
         log::info!(
             "Will not publish or alter {} dependent crate{}: {}",
             skipped_len,
-            (skipped_len != 1).then(|| "s").unwrap_or(""),
+            if skipped_len != 1 { "s" } else { "" },
             crates_by_reason
                 .into_iter()
                 .map(|(key, names)| format!(
@@ -225,11 +225,11 @@ fn present_and_validate_dependencies(
                 if let Some(latest_release) = bump
                     .latest_release
                     .as_ref()
-                    .and_then(|lr| (*lr >= bump.next_release).then(|| lr))
+                    .and_then(|lr| (*lr >= bump.next_release).then_some(lr))
                 {
                     let bump_flag = match dep.kind {
-                        dependency::Kind::UserSelection => "--bump <level>",
-                        dependency::Kind::DependencyOrDependentOfUserSelection => "--bump-dependencies <level>",
+                        Kind::UserSelection => "--bump <level>",
+                        Kind::DependencyOrDependentOfUserSelection => "--bump-dependencies <level>",
                     };
                     if bump.next_release == bump.package_version {
                         log::error!(
@@ -329,7 +329,7 @@ fn present_and_validate_dependencies(
                 },
             );
         for (cause, deps_and_bumps) in affected_crates_by_cause {
-            let plural_s = (deps_and_bumps.len() != 1).then(|| "s").unwrap_or("");
+            let plural_s = if deps_and_bumps.len() != 1 { "s" } else { "" };
             log::info!(
                 "{} adjust {} manifest version{} due to breaking change in '{}': {}",
                 will(dry_run),
@@ -361,7 +361,7 @@ fn present_and_validate_dependencies(
             .collect::<Vec<_>>();
         if !crate_names_for_manifest_updates.is_empty() {
             let plural_s = (crate_names_for_manifest_updates.len() > 1)
-                .then(|| "s")
+                .then_some("s")
                 .unwrap_or_default();
             log::info!(
                 "{} adjust version constraints in manifest{} of {} package{} as direct dependencies are changing: {}",
@@ -397,7 +397,7 @@ fn assure_working_tree_is_unchanged(options: Options) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn perform_release(ctx: &Context, options: Options, crates: &[traverse::Dependency<'_>]) -> anyhow::Result<()> {
+fn perform_release(ctx: &Context, options: Options, crates: &[Dependency<'_>]) -> anyhow::Result<()> {
     let manifest::Outcome {
         commit_id,
         section_by_package: release_section_by_publishee,
@@ -517,7 +517,7 @@ fn section_to_string(section: &Section, mode: WriteMode) -> Option<String> {
     section
         .write_to(
             &mut b,
-            &changelog::write::Linkables::AsText,
+            &Linkables::AsText,
             match mode {
                 WriteMode::Tag => changelog::write::Components::empty(),
                 WriteMode::GitHubRelease => changelog::write::Components::DETAIL_TAGS,

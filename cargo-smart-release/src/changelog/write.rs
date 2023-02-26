@@ -1,5 +1,6 @@
-use git_repository as git;
-use git_repository::{bstr::ByteSlice, url::Scheme, Url};
+use std::borrow::Cow;
+
+use gix::{bstr::ByteSlice, url::Scheme, Url};
 
 use crate::{
     changelog,
@@ -39,10 +40,10 @@ pub enum Linkables {
 
 #[derive(Clone)]
 pub struct RepositoryUrl {
-    pub inner: git::Url,
+    pub inner: gix::Url,
 }
 
-impl From<git::Url> for RepositoryUrl {
+impl From<gix::Url> for RepositoryUrl {
     fn from(v: Url) -> Self {
         RepositoryUrl { inner: v }
     }
@@ -279,7 +280,12 @@ impl section::Segment {
                 for (category, messages) in commits_by_category.iter() {
                     writeln!(out, " * **{}**", format_category(category, link_mode))?;
                     for message in messages {
-                        writeln!(out, "    - {} ({})", message.title, format_oid(&message.id, link_mode))?;
+                        writeln!(
+                            out,
+                            "    - {} ({})",
+                            capitalize_message_title(&message.title),
+                            format_oid(&message.id, link_mode)
+                        )?;
                     }
                 }
                 if write_details_tags {
@@ -381,7 +387,7 @@ fn format_category(cat: &Category, link_mode: &Linkables) -> String {
     }
 }
 
-fn format_oid(id: &git::oid, link_mode: &Linkables) -> String {
+fn format_oid(id: &gix::oid, link_mode: &Linkables) -> String {
     match link_mode {
         Linkables::AsText => id.to_hex_with_len(7).to_string(),
         Linkables::AsLinks { repository_url } => match repository_url.github_https() {
@@ -391,4 +397,16 @@ fn format_oid(id: &git::oid, link_mode: &Linkables) -> String {
             None => format_oid(id, &Linkables::AsText),
         },
     }
+}
+
+fn capitalize_message_title<'a>(title: impl Into<Cow<'a, str>>) -> Cow<'a, str> {
+    let mut title = title.into();
+    let mut chars = title.chars();
+    if let Some(first) = chars
+        .next()
+        .and_then(|c| (c.to_uppercase().next() != Some(c)).then_some(c))
+    {
+        *title.to_mut() = first.to_uppercase().chain(chars).collect();
+    }
+    title
 }

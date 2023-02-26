@@ -2,14 +2,13 @@ use cargo_metadata::{
     camino::{Utf8Path, Utf8PathBuf},
     Metadata, Package,
 };
-use git_repository as git;
 
 use crate::version::BumpSpec;
 
 pub struct Context {
     pub root: Utf8PathBuf,
     pub meta: Metadata,
-    pub repo: git::Repository,
+    pub repo: gix::Repository,
     pub crate_names: Vec<String>,
     pub crates_index: crate::crates_index::Index,
     pub history: Option<crate::commit::History>,
@@ -26,7 +25,7 @@ impl Context {
     ) -> anyhow::Result<Self> {
         let meta = cargo_metadata::MetadataCommand::new().exec()?;
         let root = meta.workspace_root.clone();
-        let repo = git::discover(&root)?;
+        let repo = gix::discover(&root)?;
         let crates_index = crate::crates_index::Index::new_cargo_default()?;
         let history = (force_history_segmentation
             || matches!(bump, BumpSpec::Auto)
@@ -52,7 +51,13 @@ impl Context {
             .parent()
             .expect("parent of a file is always present")
             .strip_prefix(&self.root)
-            .expect("workspace members are relative to the root directory");
+            .unwrap_or_else(|_| {
+                panic!(
+                    "workspace members are relative to the root directory: {:?} should contain {:?}",
+                    self.root,
+                    p.manifest_path.parent()
+                )
+            });
 
         if dir.as_os_str().is_empty() {
             None

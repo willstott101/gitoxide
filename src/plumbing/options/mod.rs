@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
-use git_repository as git;
-use git_repository::bstr::BString;
 use gitoxide_core as core;
+use gix::bstr::BString;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "gix-plumbing", about = "The git underworld", version = clap::crate_version!())]
@@ -17,7 +16,7 @@ pub struct Args {
     ///
     /// For example, if `key` is `core.abbrev`, set configuration like `[core] abbrev = key`,
     /// or `remote.origin.url = foo` to set `[remote "origin"] url = foo`.
-    #[clap(long, short = 'c', parse(try_from_os_str = git::env::os_str_to_bstring))]
+    #[clap(long, short = 'c', value_parser = crate::shared::AsBString)]
     pub config: Vec<BString>,
 
     #[clap(long, short = 't')]
@@ -59,13 +58,13 @@ pub struct Args {
         long,
         short = 'f',
         default_value = "human",
-        possible_values(core::OutputFormat::variants())
+        value_parser = crate::shared::AsOutputFormat
     )]
     pub format: core::OutputFormat,
 
     /// The object format to assume when reading files that don't inherently know about it, or when writing files.
-    #[clap(long, default_value_t = git_repository::hash::Kind::default(), possible_values(&["SHA1"]))]
-    pub object_hash: git_repository::hash::Kind,
+    #[clap(long, default_value_t = gix::hash::Kind::default(), value_parser = crate::shared::AsHashKind)]
+    pub object_hash: gix::hash::Kind,
 
     #[clap(subcommand)]
     pub cmd: Subcommands,
@@ -109,8 +108,8 @@ pub enum Subcommands {
     Exclude(exclude::Subcommands),
     #[clap(subcommand)]
     Index(index::Subcommands),
-    /// Display overall progress of the gitoxide project as seen from the perspective of git-config.
-    Progress,
+    /// Show which git configuration values are used or planned.
+    ConfigTree,
     Config(config::Platform),
     /// Subcommands that need no git repository to run.
     #[clap(subcommand)]
@@ -118,8 +117,8 @@ pub enum Subcommands {
 }
 
 pub mod config {
-    use git::bstr::BString;
-    use git_repository as git;
+
+    use gix::bstr::BString;
 
     /// Print all entries in a configuration file or access other sub-commands
     #[derive(Debug, clap::Parser)]
@@ -129,15 +128,13 @@ pub mod config {
         ///
         /// Typical filters are `branch` or `remote.origin` or `remote.or*` - git-style globs are supported
         /// and comparisons are case-insensitive.
-        #[clap(parse(try_from_os_str = git::env::os_str_to_bstring))]
+        #[clap(value_parser = crate::shared::AsBString)]
         pub filter: Vec<BString>,
     }
 }
 
 #[cfg(feature = "gitoxide-core-blocking-client")]
 pub mod fetch {
-    use git_repository as git;
-
     #[derive(Debug, clap::Parser)]
     pub struct Platform {
         /// Don't change the local repository, but otherwise try to be as accurate as possible.
@@ -155,8 +152,8 @@ pub mod fetch {
         pub remote: Option<String>,
 
         /// Override the built-in and configured ref-specs with one or more of the given ones.
-        #[clap(parse(try_from_os_str = git::env::os_str_to_bstring))]
-        pub ref_spec: Vec<git_repository::bstr::BString>,
+        #[clap(value_parser = crate::shared::AsBString)]
+        pub ref_spec: Vec<gix::bstr::BString>,
     }
 }
 
@@ -182,14 +179,12 @@ pub mod clone {
         pub remote: OsString,
 
         /// The directory to initialize with the new repository and to which all data should be written.
-        pub directory: PathBuf,
+        pub directory: Option<PathBuf>,
     }
 }
 
 #[cfg(any(feature = "gitoxide-core-async-client", feature = "gitoxide-core-blocking-client"))]
 pub mod remote {
-    use git_repository as git;
-
     #[derive(Debug, clap::Parser)]
     pub struct Platform {
         /// The name of the remote to connect to, or the URL of the remote to connect to directly.
@@ -218,8 +213,8 @@ pub mod remote {
             #[clap(long, short = 'u')]
             show_unmapped_remote_refs: bool,
             /// Override the built-in and configured ref-specs with one or more of the given ones.
-            #[clap(parse(try_from_os_str = git::env::os_str_to_bstring))]
-            ref_spec: Vec<git_repository::bstr::BString>,
+            #[clap(value_parser = crate::shared::AsBString)]
+            ref_spec: Vec<gix::bstr::BString>,
         },
     }
 }
@@ -258,7 +253,7 @@ pub mod tree {
             #[clap(long, short = 'e')]
             extended: bool,
 
-            /// The tree to traverse, or the tree at `HEAD` if unspecified.
+            /// The revspec of the tree to traverse, or the tree at `HEAD` if unspecified.
             treeish: Option<String>,
         },
         /// Provide information about a tree.
@@ -266,7 +261,7 @@ pub mod tree {
             /// Provide files size as well. This is expensive as the object is decoded entirely.
             #[clap(long, short = 'e')]
             extended: bool,
-            /// The tree to traverse, or the tree at `HEAD` if unspecified.
+            /// The revspec of the tree to traverse, or the tree at `HEAD` if unspecified.
             treeish: Option<String>,
         },
     }
@@ -360,7 +355,7 @@ pub mod revision {
 pub mod exclude {
     use std::ffi::OsString;
 
-    use git_repository as git;
+    use crate::shared::AsPathSpec;
 
     #[derive(Debug, clap::Subcommand)]
     pub enum Subcommands {
@@ -377,8 +372,8 @@ pub mod exclude {
             #[clap(long, short = 'p')]
             patterns: Vec<OsString>,
             /// The git path specifications to check for exclusion, or unset to read from stdin one per line.
-            #[clap(parse(try_from_os_str = std::convert::TryFrom::try_from))]
-            pathspecs: Vec<git::path::Spec>,
+            #[clap(value_parser = AsPathSpec)]
+            pathspecs: Vec<gix::path::Spec>,
         },
     }
 }

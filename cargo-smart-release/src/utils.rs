@@ -5,8 +5,7 @@ use cargo_metadata::{
     camino::{Utf8Component, Utf8Path},
     Dependency, DependencyKind, Metadata, Package, PackageId,
 };
-use git_repository as git;
-use git_repository::bstr::{BStr, ByteSlice};
+use gix::bstr::{BStr, ByteSlice};
 use semver::{Version, VersionReq};
 use time::OffsetDateTime;
 
@@ -50,7 +49,7 @@ pub fn is_pre_release_version(semver: &Version) -> bool {
     semver.major == 0
 }
 
-pub fn is_top_level_package(manifest_path: &Utf8Path, repo: &git::Repository) -> bool {
+pub fn is_top_level_package(manifest_path: &Utf8Path, repo: &gix::Repository) -> bool {
     manifest_path
         .strip_prefix(
             std::env::current_dir()
@@ -75,14 +74,14 @@ pub fn package_eq_dependency_ignore_dev_without_version(package: &Package, depen
 pub fn workspace_package_by_dependency<'a>(meta: &'a Metadata, dep: &Dependency) -> Option<&'a Package> {
     meta.packages
         .iter()
-        .find(|p| p.name == dep.name)
+        .find(|p| p.name == dep.name && p.source.as_ref().map_or(true, |s| !s.is_crates_io()))
         .filter(|p| meta.workspace_members.iter().any(|m| m == &p.id))
 }
 
 pub fn package_by_name<'a>(meta: &'a Metadata, name: &str) -> anyhow::Result<&'a Package> {
     meta.packages
         .iter()
-        .find(|p| p.name == name)
+        .find(|p| p.name == name && p.source.as_ref().map_or(true, |s| !s.is_crates_io()))
         .ok_or_else(|| anyhow!("workspace member '{}' must be a listed package", name))
 }
 
@@ -101,7 +100,7 @@ pub fn package_by_id<'a>(meta: &'a Metadata, id: &PackageId) -> &'a Package {
         .expect("workspace members are in packages")
 }
 
-pub fn tag_prefix<'p>(package: &'p Package, repo: &git::Repository) -> Option<&'p str> {
+pub fn tag_prefix<'p>(package: &'p Package, repo: &gix::Repository) -> Option<&'p str> {
     if is_top_level_package(&package.manifest_path, repo) {
         None
     } else {
@@ -109,7 +108,7 @@ pub fn tag_prefix<'p>(package: &'p Package, repo: &git::Repository) -> Option<&'
     }
 }
 
-pub fn tag_name(package: &Package, version: &semver::Version, repo: &git::Repository) -> String {
+pub fn tag_name(package: &Package, version: &semver::Version, repo: &gix::Repository) -> String {
     tag_name_inner(tag_prefix(package, repo), version)
 }
 
@@ -140,7 +139,7 @@ pub fn parse_tag_version(name: &BStr) -> Option<Version> {
     Version::parse(version).ok()
 }
 
-pub fn is_tag_name(package_name: &str, tag_name: &git::bstr::BStr) -> bool {
+pub fn is_tag_name(package_name: &str, tag_name: &gix::bstr::BStr) -> bool {
     match tag_name
         .strip_prefix(package_name.as_bytes())
         .and_then(|r| r.strip_prefix(b"-"))
@@ -150,7 +149,7 @@ pub fn is_tag_name(package_name: &str, tag_name: &git::bstr::BStr) -> bool {
     }
 }
 
-pub fn is_tag_version(name: &git::bstr::BStr) -> bool {
+pub fn is_tag_version(name: &gix::bstr::BStr) -> bool {
     parse_tag_version(name).is_some()
 }
 
@@ -167,7 +166,7 @@ mod tests {
         mod matches {
             use std::str::FromStr;
 
-            use git_repository::bstr::ByteSlice;
+            use gix::bstr::ByteSlice;
             use semver::Version;
 
             use crate::utils::{parse_possibly_prefixed_tag_version, tag_name_inner};
@@ -211,7 +210,7 @@ mod tests {
         mod no_match {
             use std::str::FromStr;
 
-            use git_repository::bstr::ByteSlice;
+            use gix::bstr::ByteSlice;
             use semver::Version;
 
             use crate::utils::{is_tag_name, tag_name_inner};
@@ -229,7 +228,7 @@ mod tests {
         mod matches {
             use std::str::FromStr;
 
-            use git_repository::bstr::ByteSlice;
+            use gix::bstr::ByteSlice;
             use semver::Version;
 
             use crate::utils::{is_tag_name, tag_name_inner};
@@ -254,7 +253,7 @@ mod tests {
     }
     mod is_tag_version {
         mod no_match {
-            use git_repository::bstr::ByteSlice;
+            use gix::bstr::ByteSlice;
 
             use crate::utils::is_tag_version;
 
@@ -274,7 +273,7 @@ mod tests {
             }
         }
         mod matches {
-            use git_repository::bstr::ByteSlice;
+            use gix::bstr::ByteSlice;
 
             #[test]
             fn no_prefix() {
@@ -303,7 +302,7 @@ mod tests {
     }
 }
 
-pub fn time_to_offset_date_time(time: git::actor::Time) -> OffsetDateTime {
+pub fn time_to_offset_date_time(time: gix::actor::Time) -> OffsetDateTime {
     time::OffsetDateTime::from_unix_timestamp(time.seconds_since_unix_epoch as i64)
         .expect("always valid unix time")
         .replace_offset(time::UtcOffset::from_whole_seconds(time.offset_in_seconds).expect("valid offset"))

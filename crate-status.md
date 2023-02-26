@@ -1,6 +1,6 @@
 ### gitoxide
 
-**gix** is a command-line interface (*CLI*) to access git repositories in various ways best decribed as low-level
+**gix** is a command-line interface (*CLI*) to access git repositories in various ways best described as low-level
 for use by experts or those validating functionality in real-world scenarios. Performance and efficiency are staples
 of the implementation.
 
@@ -8,7 +8,7 @@ of the implementation.
 with the potential to become the preferred way to interact with git repositories.
 
 Please note that all functionality comes from the `gitoxide-core` library, which mirrors these capabilities
-and itself relies on all `git-*` crates. It's not meant for consumption, for application development, please use `git-repository`.
+and itself relies on all `git-*` crates. It's not meant for consumption, for application development, please use `gix`.
 
 * **the `ein` program** - convenient and for humans
     * [x] **init** - initialize a new non-bare repository with a `main` branch
@@ -85,26 +85,28 @@ and itself relies on all `git-*` crates. It's not meant for consumption, for app
 [git-hours]: https://github.com/kimmobrunfeldt/git-hours/blob/8aaeee237cb9d9028e7a2592a25ad8468b1f45e4/index.js#L114-L143
 [git-hours-discussion]: https://github.com/Byron/gitoxide/discussions/78
 
-### git-actor
+### gix-actor
 * [x] read and write a signature that uniquely identifies an actor within a git repository
+* [ ] a way to parse `name <email>` tuples (instead of full signatures) to facilitate parsing
+      commit trailers.
 
-### git-hash
+### gix-hash
 * types to represent hash digests to identify git objects.
 * used to abstract over different kinds of hashes, like SHA1 and the upcoming SHA256
 * [x] API documentation
     * [ ] Some examples
 
-### git-chunk
+### gix-chunk
 * [x] decode the chunk file table of contents and provide convenient API
 * [x] write the table of contents
 
-### git-hashtable
+### gix-hashtable
 
 * [x] hashmap
 * [x] hashset
 
 
-### git-object
+### gix-object
 * *decode (zero-copy)* borrowed objects
     * [x] commit
       * [ ] parse [trailers](https://git-scm.com/docs/git-interpret-trailers#_description) 
@@ -118,14 +120,14 @@ and itself relies on all `git-*` crates. It's not meant for consumption, for app
 * [x] API documentation
     * [ ] Some examples
 
-### git-pack
+### gix-pack
 * **packs**
     * [x] traverse pack index
     * [x] 'object' abstraction
         * [x] decode (zero copy)
         * [x] verify checksum
     * [x] simple and fast pack traversal
-        * [ ] [fast pack traversal works with ref-deltas](https://github.com/Byron/gitoxide/blob/8f9a55bb31af32b266d7c53426bc925361a627b2/git-pack/src/cache/delta/from_offsets.rs#L101-L105)
+        * [ ] [fast pack traversal works with ref-deltas](https://github.com/Byron/gitoxide/blob/8f9a55bb31af32b266d7c53426bc925361a627b2/gix-pack/src/cache/delta/from_offsets.rs#L101-L105)
     * [x] decode
         * [x] full objects
         * [x] deltified objects
@@ -162,7 +164,7 @@ and itself relies on all `git-*` crates. It's not meant for consumption, for app
 * [x] API documentation
     * [ ] Some examples
 
-### git-odb
+### gix-odb
 * **loose object store**
     * [x] traverse
     * [x] read
@@ -194,15 +196,12 @@ and itself relies on all `git-*` crates. It's not meant for consumption, for app
 * [x] API documentation
     * [ ] Some examples
     
-### git-diff
+### gix-diff
 
-Check out the [performance discussion][git-diff-performance] as well.
+Check out the [performance discussion][gix-diff-performance] as well.
 
 * **tree**
   * [x] changes needed to obtain _other tree_
-  * [ ] case-insensitive comparisons  
-  * [ ] rename and copy tracking
-  * [ ] readily available caching for 4x+ speedups
 * **patches**    
   * There are various ways to generate a patch from two blobs.
   * [ ] any
@@ -213,11 +212,11 @@ Check out the [performance discussion][git-diff-performance] as well.
 * [x] API documentation
   * [ ] Examples
     
-[git-diff-performance]: https://github.com/Byron/gitoxide/discussions/74
+[gix-diff-performance]: https://github.com/Byron/gitoxide/discussions/74
 
-### git-traverse
+### gix-traverse
 
-Check out the [performance discussion][git-traverse-performance] as well.
+Check out the [performance discussion][gix-traverse-performance] as well.
 
 * **trees**
   * [x] nested traversal
@@ -226,9 +225,9 @@ Check out the [performance discussion][git-traverse-performance] as well.
 * [x] API documentation
     * [ ] Examples
     
-[git-traverse-performance]: https://github.com/Byron/gitoxide/discussions/76
+[gix-traverse-performance]: https://github.com/Byron/gitoxide/discussions/76
 
-### git-url
+### gix-url
 * As documented here: https://www.git-scm.com/docs/git-clone#_git_urls
 * **parse**
     * [x] ssh URLs and SCP like syntax
@@ -239,7 +238,7 @@ Check out the [performance discussion][git-traverse-performance] as well.
 * [x] API documentation
     * [ ] Some examples
 
-### git-packetline
+### gix-packetline
 * [PKT-Line](https://github.com/git/git/blob/master/Documentation/technical/protocol-common.txt#L52:L52)
 * [x] encode
 * [x] decode (zero-copy)
@@ -252,7 +251,7 @@ Check out the [performance discussion][git-traverse-performance] as well.
 * [x] API documentation
     * [ ] Some examples
 
-### git-transport
+### gix-transport
 * No matter what we do here, timeouts must be supported to prevent hanging forever and to make interrupts destructor-safe.
 * **client**
     * [x] general purpose `connect(…)` for clients
@@ -300,10 +299,10 @@ Check out the [performance discussion][git-traverse-performance] as well.
 * **04** -> proxy authentication
 * **05** -> [reauthentication after redirect](https://github.com/git/git/blob/eea7033409a0ed713c78437fc76486983d211e25/http.c#L1931)
     
-### git-protocol
+### gix-protocol
 * _abstract over protocol versions to allow delegates to deal only with a single way of doing things_
 * [x] **credentials**
-    * [x] via git-credentials
+    * [x] via gix-credentials
     * [ ] via pure Rust implementation if no git is installed
 * [x] handshake
     * parse initial response of V1 and V2 servers
@@ -323,22 +322,22 @@ Check out the [performance discussion][git-traverse-performance] as well.
 * [x] API documentation
     * [ ] Some examples
 
-### git-attributes
-* [x] parse git-ignore files (aka git-attributes without the attributes or negation)
-* [x] parse git-attributes files
+### gix-attributes
+* [x] parse git-ignore files (aka gix-attributes without the attributes or negation)
+* [x] parse gix-attributes files
 * [ ] create an attributes stack, ideally one that includes 'ignored' status from .gitignore files.
    * [ ] support for built-in `binary` macro for `-text -diff -merge`
     
-### git-quote
+### gix-quote
 * **ansi-c**
   * [x] quote
   * [ ] unquote
    
-### git-mailmap
+### gix-mailmap
 * [x] parsing
 * [x] lookup and mapping of author names
 
-### git-path
+### gix-path
 * [x] transformations to and from bytes
 * [x] conversions between different platforms
 * [x] virtual canonicalization for more concise paths via `absolutize()`
@@ -347,39 +346,39 @@ Check out the [performance discussion][git-traverse-performance] as well.
     * [ ] parse
     * [ ] check for match
 
-### git-pathspec
+### gix-pathspec
 * [x] parse
 * [ ] matching of paths
 
-### git-refspec
+### gix-refspec
 * [x] parse
 * [x] matching of references and object names
     * [x] for fetch
     * [ ] for push
 
-### git-command
+### gix-command
 * [x] execute commands directly
 * [x] execute commands with `sh`
-* [ ] support for `GIT_EXEC_PATH` environment variable with `git-sec` filter
+* [ ] support for `GIT_EXEC_PATH` environment variable with `gix-sec` filter
 
-### git-prompt
+### gix-prompt
 * [x] open prompts for usernames for example
 * [x] secure prompts for password
 * [x] use `askpass` program if available
 * [ ] signal handling (resetting and restoring terminal settings)
 * [ ] windows prompts for `cmd.exe` and mingw terminals
 
-### git-note
+### gix-note
 
 A mechanism to associate metadata with any object, and keep revisions of it using git itself.
 
 * [ ] CRUD for git notes
 
-### git-fetchhead
+### gix-fetchhead
 * [ ] parse `FETCH_HEAD` information back entirely
 * [ ] write typical fetch-head lines
  
-### git-discover
+### gix-discover
 
 * [x] check if a git directory is a git repository
 * [x] find a git repository by searching upward
@@ -389,11 +388,11 @@ A mechanism to associate metadata with any object, and keep revisions of it usin
 * [ ] a way to handle `safe.directory`
      - note that it's less critical to support it as `gitoxide` allows access but prevents untrusted configuration to become effective.
 
-### git-date
+### gix-date
 * [ ] parse git dates
 * [ ] serialize `Time`
  
-### git-credentials
+### gix-credentials
 * [x] launch git credentials helpers with a given action
   - [x] built-in `git credential` program
   - [x] as scripts
@@ -401,7 +400,7 @@ A mechanism to associate metadata with any object, and keep revisions of it usin
   - [x] program name with optional arguments, transformed into `git credential-<name>`
 * [x] `helper::main()` for easy custom credential helper programs written in Rust
 
-### git-filter
+### gix-filter
 
 Provide base-implementations for dealing with smudge and clean filters as well as filter processes, facilitating their development.
 
@@ -409,32 +408,32 @@ Provide base-implementations for dealing with smudge and clean filters as well a
 * [ ] smudge filter base
 * [ ] filter process base
  
-### git-sec
+### gix-sec
 
 Provides a trust model to share across gitoxide crates. It helps configuring how to interact with external processes, among other things.
 
 * **integrations**
-   * [x] git-config
-   * [x] git-repository
+   * [x] gix-config
+   * [x] gix
 
-### git-rebase
+### gix-rebase
 * [ ] obtain rebase status
 * [ ] drive a rebase operation
 
-### git-sequencer
+### gix-sequencer
 
 Handle human-aided operations which cannot be completed in one command invocation.
 
-### git-lfs
+### gix-lfs
 
 Implement git large file support using the process protocol and make it flexible enough to handle a variety of cases.
 Make it the best-performing implementation and the most convenient one.
 
-### git-glob
+### gix-glob
 * [x] parse pattern
 * [x] a type for pattern matching of paths and non-paths, optionally case-insensitively.
 
-### git-worktree
+### gix-worktree
 * handle the working **tree/checkout**
   - [x] checkout an index of files, executables and symlinks just as fast as git
      - [x] forbid symlinks in directories
@@ -454,18 +453,18 @@ Make it the best-performing implementation and the most convenient one.
 * [x] access to all .gitignore/exclude information 
 * [ ] access to all attributes information
  
-### git-revision
+### gix-revision
 * [x] `describe()` (similar to `git name-rev`)
 * parse specifications 
     * [x] parsing and navigation
     * [x] revision ranges
-    * [ ] full date parsing support (depends on `git-date`)
+    * [ ] full date parsing support (depends on `gix-date`)
  
-### git-submodule
+### gix-submodule
 * CRUD for submodules
 * try to handle with all the nifty interactions and be a little more comfortable than what git offers, lay a foundation for smarter git submodules.
 
-### git-bitmap
+### gix-bitmap
 
 A plumbing crate with shared functionality regarding EWAH compressed bitmaps, as well as other kinds of bitmap implementations.
 
@@ -475,7 +474,7 @@ A plumbing crate with shared functionality regarding EWAH compressed bitmaps, as
   * [x] decode on-disk representation
   * [ ] encode on-disk representation
 
-### git-index
+### gix-index
 
 The git staging area.
 
@@ -508,6 +507,7 @@ The git staging area.
       * [x] EOIE 
       * [x] 'sdir'
       * [ ] 'link'
+          - **note** that we currently **dissolve** any shared index we read so when writing this extension is removed.
 * `stat` update
     * [ ] optional threaded `stat` based on thread_cost (aka preload)
 * [x] handling of `.gitignore` and system file exclude configuration
@@ -525,7 +525,7 @@ The git staging area.
 * [x] API documentation
     * [ ] Some examples
 
-### git-commitgraph
+### gix-commitgraph
 
 * [x] read-only access
     * [x] Graph lookup of commit information to obtain timestamps, generation and parents, and extra edges
@@ -535,15 +535,15 @@ The git staging area.
 * [x] API documentation
     * [ ] Some examples
     
-### git-tempfile
+### gix-tempfile
 
-See its [README.md](https://github.com/Byron/gitoxide/blob/main/git-tempfile/README.md).
+See its [README.md](https://github.com/Byron/gitoxide/blob/main/gix-tempfile/README.md).
 
-### git-lock
+### gix-lock
 
-See its [README.md](https://github.com/Byron/gitoxide/blob/main/git-lock/README.md).
+See its [README.md](https://github.com/Byron/gitoxide/blob/main/gix-lock/README.md).
 
-### git-config-value
+### gix-config-value
 * **parse** 
     * [x] boolean
     * [x] integer
@@ -553,10 +553,10 @@ See its [README.md](https://github.com/Byron/gitoxide/blob/main/git-lock/README.
     * [ ] date
     * [ ] [permission][https://github.com/git/git/blob/71a8fab31b70c417e8f5b5f716581f89955a7082/setup.c#L1526:L1526]
     
-### git-config
+### gix-config
 * [x] read
     * zero-copy parsing with event emission
-    * all config values as per the `git-config-value` crate  
+    * all config values as per the `gix-config-value` crate  
     * **includeIf**
       * [x] `gitdir`,  `gitdir/i`, and `onbranch`
       * [ ] `hasconfig`
@@ -572,7 +572,7 @@ See its [README.md](https://github.com/Byron/gitoxide/blob/main/git-lock/README.
 * [x] API documentation
     * [x] Some examples
 
-### git-repository
+### gix
 * [x] utilities for applications to make long running operations interruptible gracefully and to support timeouts in servers.
 * [ ] handle `core.repositoryFormatVersion` and extensions
 * [x] support for unicode-precomposition of command-line arguments (needs explicit use in parent application)
@@ -590,9 +590,9 @@ See its [README.md](https://github.com/Byron/gitoxide/blob/main/git-lock/README.
     * [x] access to refs and objects
     * **credentials**
       * [x] run `git credential` directly
-      * [x] use credential helper configuration and to obtain credentials with `git_credentials::helper::Cascade`
+      * [x] use credential helper configuration and to obtain credentials with `gix_credentials::helper::Cascade`
     * **config**
-      * [ ] facilities to apply the [url-match](https://git-scm.com/docs/git-config#Documentation/git-config.txt-httplturlgt) algorithm and to
+      * [ ] facilities to apply the [url-match](https://git-scm.com/docs/gix-config#Documentation/gix-config.txt-httplturlgt) algorithm and to
             [normalize urls](https://github.com/git/git/blob/be1a02a17ede4082a86dfbfee0f54f345e8b43ac/urlmatch.c#L109:L109) before comparison.
     * **traverse** 
       * [x] commit graphs
@@ -601,7 +601,19 @@ See its [README.md](https://github.com/Byron/gitoxide/blob/main/git-lock/README.
     * **diffs/changes**
         * [x] tree with other tree
            * [ ] respect case-sensitivity of host filesystem.
-           * [ ] a way to access various diff related settings or use them
+           * [x] a way to access various diff related settings or use them
+           * **rewrite tracking**
+              * **deviation** - git keeps up to four candidates whereas we use the first-found candidate that matches the similarity percentage.
+                                This can lead to different sources being found. As such, we also don't consider the filename at all.
+              * [ ] handle binary files correctly, and apply filters for that matter
+              * [x] computation limit with observable reduction of precision when it is hit, for copies and renames separately
+              * **by identity** 
+                 * [x] renames (sym-links are only ever compared by identity)
+                 * [x] copies
+              * **by similarity** - similarity factor controllable separately from renames
+                 * [x] renames
+                 * [x] copies
+              * [x] 'find-copies-harder' - find copies with the source being the entire tree.
         * [ ] tree with working tree
         * [x] diffs between modified blobs with various algorithms
         * [ ] tree with index
@@ -661,7 +673,7 @@ See its [README.md](https://github.com/Byron/gitoxide/blob/main/git-lock/README.
     * **config**
        * [x] read the primitive types `boolean`, `integer`, `string`
        * [x] read and interpolate trusted paths
-       * [x] low-level API for more elaborate access to all details of `git-config` files
+       * [x] low-level API for more elaborate access to all details of `gix-config` files
        * [ ] a way to make changes to individual configuration files
     * [x] mailmap   
     * [x] object replacements (`git replace`)
@@ -682,11 +694,11 @@ See its [README.md](https://github.com/Byron/gitoxide/blob/main/git-lock/README.
 * [ ] API documentation
     * [ ] Some examples
 
-### git-validate
+### gix-validate
 * [x] validate ref names
 * [x] [validate][tagname-validation] tag names
 
-### git-ref
+### gix-ref
 * [ ] Prepare code for arrival of longer hashes like Sha256. It's part of the [V2 proposal][reftable-v2] but should work for loose refs as well.
 * **Stores**
   * [ ] disable transactions during [quarantine]
@@ -732,7 +744,7 @@ See its [README.md](https://github.com/Byron/gitoxide/blob/main/git-lock/README.
 [quarantine]: https://github.com/git/git/blob/master/Documentation/git-receive-pack.txt#L223:L223
 
 
-### git-features
+### gix-features
 * **io-pipe** feature toggle
     * a unix like pipeline for bytes
 * **parallel** feature toggle
@@ -744,13 +756,21 @@ See its [README.md](https://github.com/Byron/gitoxide/blob/main/git-lock/README.
     * provides a faster SHA1 implementation using CPU intrinsics
 * [x] API documentation
 
-### git-tui
+### gix-tui
 * _a terminal user interface seeking to replace and improve on `tig`_
 * Can display complex history in novel ways to make them graspable. Maybe [this post] can be an inspiration.
  
-### git-tix
+### gix-tix
 
 A re-implementation of a minimal `tig` like UI that aims to be fast and to the point.
+
+### gix-lfs
+
+Definitely optimize for performance and see how we fare compared to [oxen](https://github.com/Oxen-AI/oxen-release/blob/main/Performance.md).
+Right now, `git lfs` is 40x slower, due to sequential uploads and lack of fast compression. It seems this can be greatly improved to get
+close to 6min for 200k images (1.4GB). GitHub seems to cap upload speeds to 100kb/s, one major reason it's so slow, and it can only do 
+it sequentially as `git-lfs` doesn't use the new `filter-process` protocol which would allow parallelization.
+Oxen uses the XXH3 (30gb/s) which greatly outperforms SHA1 - however, it doesn't look like the hash is necessarily the bottleneck in typical benchmarks.
 
 [tagname-validation]: https://github.com/git/git/blob/master/Documentation/technical/protocol-common.txt#L23:L23
 [this post]: http://blog.danieljanus.pl/2021/07/01/commit-groups/

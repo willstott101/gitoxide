@@ -23,7 +23,7 @@ title "Porcelain ${kind}"
       (with "progress option set"
         it "fails as expected" && {
           WITH_SNAPSHOT="$snapshot/expected-failure-in-thread-with-progress" \
-          expect_run_sh $WITH_FAILURE "$exe --progress panic"
+          expect_run_sh 101 "$exe --progress panic"
         }
       )
     )
@@ -140,12 +140,14 @@ title "Porcelain ${kind}"
               }
             )
           )
+          if test "$kind" != "max-pure"; then
           (with "running with no further arguments"
             it "succeeds and informs about possible operations" && {
               WITH_SNAPSHOT="$snapshot/no-args-failure" \
               expect_run_sh $WITH_CLAP_FAILURE "$exe t"
             }
           )
+          fi
         )
       )
     )
