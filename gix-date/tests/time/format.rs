@@ -2,7 +2,7 @@ use gix_date::{
     time::{format, Format, Sign},
     Time,
 };
-use time::macros::format_description;
+use time::{macros::format_description, UtcOffset};
 
 #[test]
 fn short() {
@@ -73,6 +73,74 @@ fn git_default() {
 }
 
 #[test]
+fn human() {
+    let expected = "in the future";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time() - time::Duration::DAY).unwrap(),
+        expected
+    );
+
+    let expected = "0 seconds ago";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time()).unwrap(),
+        expected
+    );
+
+    let expected = "1 second ago";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time() + time::Duration::SECOND).unwrap(),
+        expected
+    );
+
+    let expected = "89 seconds ago";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time() + time::Duration::SECOND * 89).unwrap(),
+        expected
+    );
+
+    let expected = "89 minutes ago";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time() + time::Duration::MINUTE * 89).unwrap(),
+        expected
+    );
+
+    let expected = "2 hours ago";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time() + time::Duration::MINUTE * 90).unwrap(),
+        expected
+    );
+
+    // Timezone does not match, but the time is the same
+    let expected = "Fri 00:03 +0230";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time().to_offset(UtcOffset::UTC)).unwrap(),
+        expected
+    );
+
+    // Timezone matches, but was more than a week ago
+    let expected = "Fri Nov 30 00:03";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time() + time::Duration::WEEK).unwrap(),
+        expected
+    );
+
+    // Timezone does not match, more than a week ago
+    let expected = "Fri Nov 30 00:03";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time().to_offset(UtcOffset::UTC) + time::Duration::WEEK)
+            .unwrap(),
+        expected
+    );
+
+    // Time was previous year
+    let expected = "Nov 30 1973";
+    assert_eq!(
+        format::human_format_comparing_to(raw_time(), raw_time() + time::Duration::DAY * 365).unwrap(),
+        expected
+    );
+}
+
+#[test]
 fn custom_compile_time() {
     assert_eq!(
         time().format(format_description!("[year]-[month]-[day] [hour]:[minute]:[second]")),
@@ -86,6 +154,13 @@ fn time() -> Time {
         offset_in_seconds: 9000,
         sign: Sign::Plus,
     }
+}
+
+fn raw_time() -> time::OffsetDateTime {
+    let t = time();
+    time::OffsetDateTime::from_unix_timestamp(t.seconds_since_unix_epoch as i64)
+        .unwrap()
+        .to_offset(time::UtcOffset::from_whole_seconds(t.offset_in_seconds).expect("valid offset"))
 }
 
 fn time_dec1() -> Time {
